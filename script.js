@@ -303,16 +303,50 @@ async function generatePDF() {
   };
 
   // 2. Kira tarikh tamat tempoh (3 bulan selepas tarikh tiba)
-  let tarikhTamat = "-";
-  if (formData.TarikhTiba !== "-") {
-    const [day, month, year] = formData.TarikhTiba.split("/");
-    const tamatDate = new Date(year, month - 1, day);
-    tamatDate.setMonth(tamatDate.getMonth() + 3);
-    const dd = String(tamatDate.getDate()).padStart(2, "0");
-    const mm = String(tamatDate.getMonth() + 1).padStart(2, "0");
-    const yyyy = tamatDate.getFullYear();
-    tarikhTamat = `${dd}/${mm}/${yyyy}`;
+let tarikhTamat = "-";
+
+if (formData.TarikhTiba !== "-") {
+  // Parse tarikh tiba dd/mm/yyyy
+  const [day, month, year] = formData.TarikhTiba.split("/");
+  const arrivalDate = new Date(year, month - 1, day);
+
+  // Tarikh tamat tempoh default = tarikh tiba + 3 bulan
+  const defaultExpiry = new Date(arrivalDate);
+  defaultExpiry.setMonth(defaultExpiry.getMonth() + 3);
+
+  // Fungsi bantu parse tarikh dd/mm/yyyy ke Date object atau null jika tak valid
+  function parseDate(dateStr) {
+    if (!dateStr || dateStr === "-") return null;
+    const parts = dateStr.split("/");
+    if (parts.length !== 3) return null;
+    const [d, m, y] = parts;
+    const dt = new Date(y, m - 1, d);
+    return isNaN(dt.getTime()) ? null : dt;
   }
+
+  // Parse tarikh mansuh PR
+  const prExpiryDate = parseDate(formData.TarikhMansuhPR);
+  
+  // (Jika ada tarikh tamat Work Pass, parse juga sama)
+  // const workPassExpiryDate = parseDate(formData.TarikhMansuhWorkPass);
+
+  // Cari tarikh tamat paling awal antara defaultExpiry dan prExpiryDate
+  let finalExpiry = defaultExpiry;
+  if (prExpiryDate && prExpiryDate < defaultExpiry) {
+    finalExpiry = prExpiryDate;
+  }
+  // Kalau ada workPassExpiryDate, bandingkan juga
+  // if (workPassExpiryDate && workPassExpiryDate < finalExpiry) {
+  //   finalExpiry = workPassExpiryDate;
+  // }
+
+  // Format semula tarikh tamat
+  const dd = String(finalExpiry.getDate()).padStart(2, "0");
+  const mm = String(finalExpiry.getMonth() + 1).padStart(2, "0");
+  const yyyy = finalExpiry.getFullYear();
+  tarikhTamat = `${dd}/${mm}/${yyyy}`;
+}
+
 
 // 3. Jana ID unik format JKDM/mm/id/yy
 const now = new Date();
