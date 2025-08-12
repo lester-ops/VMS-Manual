@@ -9,6 +9,7 @@ const translations = {
     pr_expiry: "Tarikh Mansuh PR",
     email: "E-mel",
     vehicle_info: "Maklumat Kenderaan",
+    registration_number: "No Pendaftaran",
     brand_model: "Jenama / Model",
     engine_no: "No Enjin",
     chassis_no: "No Rangka",
@@ -17,12 +18,14 @@ const translations = {
     insurance_no: "No Insuran",
     insurance_expiry: "Tarikh Luput",
     travel_info: "Maklumat Perjalanan",
-    malaysia_address: "Alamat di Malaysia",
+    destination: "Destinasi",
     arrival_date: "Tarikh Tiba",
     declaration: "Saya dengan ini mengesahkan bahawa butir-butir yang diberikan adalah betul dan akan mematuhi syarat-syarat yang ditetapkan.",
     disclaimer: "Kerajaan Malaysia dan Jabatan Kastam Diraja Malaysia (\"JKDM\", \"kami\") adalah tidak bertanggungjawab bagi apa-apa kehilangan atau kerugian yang disebabkan oleh penggunaan maklumat dari laman web ini.",
     submit: "Hantar Permohonan",
-    language_prompt: "Pilihan Bahasa"
+    language_prompt: "Pilihan Bahasa",
+    attention_note: `MAKLUMAN \n1. Borang ini hanya perlu digunakan sekiranya Sistem VMS menghadapi masalah teknikal.\n2. Maklumat yang diberikan adalah untuk kegunaan dalaman pihak berkuasa sahaja.\n3. Sila pastikan borang ini dicetak dan disertakan bersama dokumen kenderaan, pasport, serta insurans kenderaan bagi melancarkan proses kelulusan.`,
+    expiry_date: "Tamat Tempoh :"
   },
   en: {
     section_applicant: "Applicant Information",
@@ -34,6 +37,7 @@ const translations = {
     pr_expiry: "PR Expiry Date",
     email: "Email",
     vehicle_info: "Vehicle Information",
+    registration_number: "Registration Number",
     brand_model: "Brand / Model",
     engine_no: "Engine No",
     chassis_no: "Chassis No",
@@ -42,14 +46,17 @@ const translations = {
     insurance_no: "Insurance No",
     insurance_expiry: "Insurance Expiry",
     travel_info: "Travel Information",
-    malaysia_address: "Address in Malaysia",
+    destination: "Destination",
     arrival_date: "Arrival Date",
     declaration: "I hereby confirm that the information provided is accurate and I will comply with the specified conditions.",
     disclaimer: "The Government of Malaysia and the Royal Malaysian Customs Department (\"RMCD\", \"we\") shall not be held liable for any loss or damage caused by the use of any information obtained from this website.",
     submit: "Submit Application",
-    language_prompt: "Language Choice"
+    language_prompt: "Language Choice",
+attention_note: `NOTICE\n1. This form should only be used if the VMS System is experiencing technical issues.\n2. The information provided is for internal use by the authorities only.\n3. Please ensure this form is printed and submitted together with the vehicle documents, passport, and vehicle insurance to facilitate the approval process.`,
+    expiry_date: "Expired Date :"
   }
 };
+
 
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('vehicleForm');
@@ -217,14 +224,51 @@ submitBtn.disabled = true;
   initializePage();
 });
 
+function cropQRCodeCanvas(qrCanvas) {
+  const ctx = qrCanvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+  const pixels = imgData.data;
+
+  let minX = qrCanvas.width, minY = qrCanvas.height;
+  let maxX = 0, maxY = 0;
+
+  for (let y = 0; y < qrCanvas.height; y++) {
+    for (let x = 0; x < qrCanvas.width; x++) {
+      const idx = (y * qrCanvas.width + x) * 4;
+      const alpha = pixels[idx + 3];
+      const r = pixels[idx];
+      const g = pixels[idx + 1];
+      const b = pixels[idx + 2];
+      if (alpha > 0 && (r < 250 || g < 250 || b < 250)) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  const width = maxX - minX + 1;
+  const height = maxY - minY + 1;
+
+  const croppedCanvas = document.createElement('canvas');
+  croppedCanvas.width = width;
+  croppedCanvas.height = height;
+  const croppedCtx = croppedCanvas.getContext('2d');
+
+  const croppedImageData = ctx.getImageData(minX, minY, width, height);
+  croppedCtx.putImageData(croppedImageData, 0, 0);
+
+  return croppedCanvas;
+}
+
 // ✅ Fungsi utama jana PDF
 async function generatePDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  const marginLeft = 20;
+  const marginLeft = 15;
   const lineHeight = 8;
-  let y = 50;
 
   const lang = document.getElementById('language-select')?.value || 'ms';
   const t = translations[lang];
@@ -237,15 +281,16 @@ async function generatePDF() {
     return `${day}/${month}/${year}`;
   };
 
-  // 1. Kumpul data borang
+  // 1. Kumpul data
   const formData = {
-    NamaPenuh: getValue("nama_penuh"),
+    NamaPenuh: getValue("nama_penuh").toUpperCase(),
     Jantina: getValue("jantina"),
-    NoPasport: getValue("no_pasport"),
+    NoPasport: getValue("no_pasport").toUpperCase(),
     Warganegara: getValue("warganegara") === "OTHER" ? getValue("other_nationality_input") : getValue("warganegara"),
-    NoPRPasKerja: getValue("no_pr"),
+    NoPRPasKerja: getValue("no_pr").toUpperCase(),
     TarikhMansuhPR: getFormattedDate("tarikh_mansuh_pr"),
     Email: getValue("email"),
+    NoPendaftaran: getValue("no_pendaftaran").toUpperCase(),
     JenamaModel: getValue("jenama_model").toUpperCase(),
     NoEnjin: getValue("no_enjin"),
     NoRangka: getValue("no_rangka"),
@@ -253,127 +298,163 @@ async function generatePDF() {
     JenisBadan: getValue("jenis_badan").toUpperCase(),
     NoInsuran: getValue("no_insuran"),
     TarikhLuputInsuran: getFormattedDate("tarikh_luput_insuran"),
-    AlamatMalaysia: getValue("alamat_malaysia"),
+    AlamatMalaysia: getValue("destinasi").toUpperCase(),
     TarikhTiba: getFormattedDate("tarikh_tiba")
   };
 
-  // 2. Jana QR code (format: key=value;)
-  const qrText = Object.entries(formData)
-    .map(([key, value]) => `${key}=${value}`)
-    .join(";");
+  // 2. Kira tarikh tamat tempoh (3 bulan selepas tarikh tiba)
+  let tarikhTamat = "-";
+  if (formData.TarikhTiba !== "-") {
+    const [day, month, year] = formData.TarikhTiba.split("/");
+    const tamatDate = new Date(year, month - 1, day);
+    tamatDate.setMonth(tamatDate.getMonth() + 3);
+    const dd = String(tamatDate.getDate()).padStart(2, "0");
+    const mm = String(tamatDate.getMonth() + 1).padStart(2, "0");
+    const yyyy = tamatDate.getFullYear();
+    tarikhTamat = `${dd}/${mm}/${yyyy}`;
+  }
 
-  const qrCanvas = document.createElement('canvas');
-  new QRious({
-    element: qrCanvas,
-    value: qrText,
-    size: 100
-  });
+// 3. Jana ID unik format JKDM/mm/id/yy
+const now = new Date();
+const bulan = String(now.getMonth() + 1).padStart(2, '0');
+const tahun = String(now.getFullYear()).slice(-2);
+const randomID = Math.floor(100 + Math.random() * 900);
 
-  // 3. Masukkan imej header & QR
+// dapatkan no pendaftaran dari formData, bersihkan dari spasi dan huruf kecil
+const noPendaftaranClean = formData.NoPendaftaran.replace(/\s+/g, '').toUpperCase();
+
+// format nombor borang ikut permintaan
+const uniqueID = `JKDM/${bulan}/${randomID}${noPendaftaranClean}/${tahun}`;
+
+  // 4. Jana QR code
+  // 4. Jana QR code dengan tambah NoBorang & Tarikh Tamat Tempoh sebagai 2 column pertama
+const qrDataOrdered = {
+  NoBorang: uniqueID,
+  TamatTempoh: tarikhTamat,
+  ...formData
+};
+
+const qrText = Object.entries(qrDataOrdered)
+  .map(([key, value]) => `${key}=${value}`)
+  .join(";");
+
+  const qrCanvasRaw = document.createElement('canvas');
+new QRious({ element: qrCanvasRaw, value: qrText, size: 120 });
+const qrCanvas = cropQRCodeCanvas(qrCanvasRaw);
+
+  // 5. Header
   const headerImg = new Image();
   headerImg.src = "header.png";
-
+  let yStart;
   await new Promise(resolve => {
     headerImg.onload = () => {
-      const contentWidth = pageWidth - 2 * marginLeft;
-
-      const headerWidth = contentWidth * 0.75; // 65% ruang
+      const headerWidth = pageWidth * 0.8;
+      const headerX = (pageWidth - headerWidth) / 2;
       const headerHeight = (headerImg.height / headerImg.width) * headerWidth;
-
-      const qrWidth = contentWidth * 0.30; // 25% ruang
-      const qrX = pageWidth - marginLeft - qrWidth + 10; // <-- tambah +5 untuk gerakkan kanan
-
-      doc.addImage(headerImg, 'PNG', marginLeft, 10, headerWidth, headerHeight);
-      doc.addImage(qrCanvas.toDataURL("image/png"), 'PNG', qrX, 3, qrWidth, qrWidth);
-
+      doc.addImage(headerImg, 'PNG', headerX, 7, headerWidth, headerHeight);
+      yStart = headerHeight + 10;
       resolve();
     };
   });
 
-  // 4. Fungsi bantu untuk seksyen & baris
-  function sectionTitle(title) {
-    y += 10;
+  // 6. Fungsi bantu
+  function sectionTitle(title, x, y) {
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(12);
-    doc.text(title, pageWidth / 2, y, { align: "center" });
+    doc.text(title, x, y);
     y += 2;
     doc.setLineWidth(0.5);
-    doc.line(marginLeft, y, pageWidth - marginLeft, y);
-    y += 6;
+    doc.line(x, y, x + 80, y);
+    return y + 6;
   }
-
-  function row(labelKey, value) {
-    const label = t[labelKey] || labelKey;
-    const labelX = marginLeft + 10;
-    const valueX = labelX + 65;
+  function row(label, value, x, y) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(11);
-    doc.text(`${label}:`, labelX, y);
-    doc.text(value || '-', valueX, y);
-    y += lineHeight - 1;
+    doc.text(`${label}:`, x, y);
+    doc.text(value || '-', x + 40, y);//gerakkan jawapan kepada label (value besar ke kanan)
+    return y + lineHeight - 1;
   }
 
-  // 5. Isi borang PDF
-  sectionTitle(t.section_applicant);
-  row("full_name", formData.NamaPenuh);
-  row("gender", formData.Jantina);
-  row("passport_no", formData.NoPasport);
-  row("nationality", formData.Warganegara);
-  row("pr_number", formData.NoPRPasKerja);
-  row("pr_expiry", formData.TarikhMansuhPR);
-  row("email", formData.Email);
+  // 7. Maklumat Pemohon (kiri)
+  let yLeft = sectionTitle(t.section_applicant, marginLeft, yStart);
+  yLeft = row(t.full_name, formData.NamaPenuh, marginLeft, yLeft);
+  yLeft = row(t.gender, formData.Jantina, marginLeft, yLeft);
+  yLeft = row(t.passport_no, formData.NoPasport, marginLeft, yLeft);
+  yLeft = row(t.nationality, formData.Warganegara, marginLeft, yLeft);
+  yLeft = row(t.pr_number, formData.NoPRPasKerja, marginLeft, yLeft);
+  yLeft = row(t.pr_expiry, formData.TarikhMansuhPR, marginLeft, yLeft);
+  yLeft = row(t.email, formData.Email, marginLeft, yLeft);
 
-  sectionTitle(t.vehicle_info);
-  row("brand_model", formData.JenamaModel);
-  row("engine_no", formData.NoEnjin);
-  row("chassis_no", formData.NoRangka);
-  row("year_made", formData.TahunDibentuk);
-  row("body_type", formData.JenisBadan);
-  row("insurance_no", formData.NoInsuran);
-  row("insurance_expiry", formData.TarikhLuputInsuran);
+// 8. QR Code + No Borang + Tamat Tempoh
+const qrSize = 50;
+const qrX = pageWidth - marginLeft - qrSize - 18;
 
-  sectionTitle(t.travel_info);
-  const alamatLabel = t["malaysia_address"] + ":";
-  const labelX = marginLeft + 10;
-  const valueX = labelX + 65;
-  // Label 'Alamat di Malaysia' – masih bold
-doc.setFont("Helvetica", "bold");
-doc.text(alamatLabel, labelX, y);
+// QR code kekal pada tempat asal (cth awal anda)
+const qrY = yStart + (yLeft - yStart) / 2 - qrSize / 2 - 5; // jangan ubah
 
-// Jawapan – guna font biasa
-doc.setFont("Helvetica", "normal");
-const alamatWrapped = doc.splitTextToSize(formData.AlamatMalaysia, pageWidth - valueX - marginLeft);
-doc.text(alamatWrapped, valueX, y);
-y += alamatWrapped.length * (lineHeight - 2);
-  row("arrival_date", formData.TarikhTiba);
+// Label X (kiri label) dan Value X (kanan value)
+const labelX = qrX - 7;
+const valueX = qrX + qrSize + 7;
 
-  // 6. Pengesahan & nota kaki
- // 📌 Tetapkan Y statik untuk pengesahan (cth: 250mm dari atas)
-const staticYDeclaration = 250;
-doc.setFont("Helvetica", "bold");
-doc.setFontSize(11);
-doc.text(t.declaration, marginLeft, staticYDeclaration, {
-  maxWidth: pageWidth - 2 * marginLeft
-});
+// Letak Tamat Tempoh dulu (posisi bawah)
+const expiryY = qrY + qrSize + 12;
 
-// 📌 Tetapkan Y statik untuk disclaimer (cth: 265mm dari atas)
-const staticYDisclaimer = 265;
-doc.setFont("Helvetica", "normal");
+// Letak No Borang sedikit atas tamat tempoh
+const noBorangY = expiryY - 6; // 8 mm atas tamat tempoh
+
 doc.setFontSize(10);
-doc.text(t.disclaimer, marginLeft, staticYDisclaimer, {
-  maxWidth: pageWidth - 2 * marginLeft
-});
+doc.setFont("Helvetica", "bold");
+// No Borang di atas
+doc.text("No Borang :", labelX, noBorangY);
+doc.setFont("Helvetica", "normal");
+doc.text(uniqueID, valueX, noBorangY, { align: "right" });
 
+// Tamat Tempoh di bawah No Borang
+doc.setFont("Helvetica", "bold");
+doc.text(t.expiry_date || "Tamat Tempoh:", labelX, expiryY);
+doc.setFont("Helvetica", "normal");
+doc.text(tarikhTamat, valueX, expiryY, { align: "right" });
+
+// QR code tetap sama di kanan
+doc.addImage(qrCanvas.toDataURL("image/png"), 'PNG', qrX, qrY, qrSize, qrSize);
+
+
+
+  // 9. Maklumat Kenderaan (kiri) + Maklumat Perjalanan (kanan)
+  let yLeft2 = sectionTitle(t.vehicle_info, marginLeft, yLeft + 20);
+  yLeft2 = row(t.registration_number, formData.NoPendaftaran, marginLeft, yLeft2);
+  yLeft2 = row(t.brand_model, formData.JenamaModel, marginLeft, yLeft2);
+  yLeft2 = row(t.engine_no, formData.NoEnjin, marginLeft, yLeft2);
+  yLeft2 = row(t.chassis_no, formData.NoRangka, marginLeft, yLeft2);
+  yLeft2 = row(t.year_made, formData.TahunDibentuk, marginLeft, yLeft2);
+  yLeft2 = row(t.body_type, formData.JenisBadan, marginLeft, yLeft2);
+  yLeft2 = row(t.insurance_no, formData.NoInsuran, marginLeft, yLeft2);
+  yLeft2 = row(t.insurance_expiry, formData.TarikhLuputInsuran, marginLeft, yLeft2);
+
+  let yRight2 = sectionTitle(t.travel_info, pageWidth / 2 + 10, yLeft + 20);
+  yRight2 = row(t.destination || "Destinasi", formData.AlamatMalaysia, pageWidth / 2 + 10, yRight2);
+  yRight2 = row(t.arrival_date, formData.TarikhTiba, pageWidth / 2 + 10, yRight2);
+
+  // 10. Nota & tarikh cetakan
+  const finalY = Math.max(yLeft2, yRight2) + 10;
+  doc.setFont("Helvetica", "bold");
+  doc.text(t.declaration, marginLeft, finalY, { maxWidth: pageWidth - marginLeft * 2 });
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(t.disclaimer, marginLeft, finalY + 12, { maxWidth: pageWidth - marginLeft * 2 });
+
+  // Nota PERHATIAN
+  doc.setFont("Helvetica", "bold");
+  doc.setTextColor(200, 0, 0);
+  doc.text(t.attention_note, marginLeft, finalY + 35, { maxWidth: pageWidth - marginLeft * 2 });
+
+  // Tarikh cetakan di kaki
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
   doc.text(`Tarikh Cetakan: ${new Date().toLocaleDateString("ms-MY")}`, pageWidth - marginLeft, 287, { align: "right" });
 
-  // 7. Simpan fail
+  // 11. Simpan PDF
   const nama = formData.NamaPenuh.replace(/\s+/g, "_") || "borang";
   doc.save(`Borang_${nama}.pdf`);
 }
-
-
-
-
-
-
-
