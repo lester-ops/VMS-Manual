@@ -30,7 +30,6 @@ const translations = {
     language_prompt: "Pilihan Bahasa",
     attention_note: `MAKLUMAN \n1. Borang ini hanya perlu digunakan sekiranya Sistem VMS menghadapi masalah teknikal.\n2. Maklumat yang diberikan adalah untuk kegunaan dalaman pihak berkuasa sahaja.\n3. Sila pastikan borang ini dicetak dan disertakan bersama dokumen kenderaan, pasport, serta insurans kenderaan bagi melancarkan proses kelulusan.`,
     expiry_date: "Tamat Tempoh :",
-    // Tambahan untuk error messages
     error_required: "Ruangan ini wajib diisi",
     error_email: "Sila masukkan alamat e-mel yang sah",
     error_year: "Sila masukkan tahun yang sah",
@@ -40,7 +39,18 @@ const translations = {
     processing: "Sedang memproses...",
     success: "Borang berjaya dijana!",
     help_confirm: "Pengesahan diperlukan sebelum menghantar",
-    help_submit: "Klik untuk menjana dan memuat turun borang PDF"
+    help_submit: "Klik untuk menjana dan memuat turun borang PDF",
+    help_nama: "Masukkan nama penuh",
+    help_jantina: "Pilih jantina yang berkenaan",
+    help_pasport: "Contoh: A12345678",
+    help_pr: "Wajib untuk warganegara Malaysia",
+    help_pr_expiry: "Pilih tarikh tamat tempoh PR",
+    help_email: "Contoh: nama@email.com",
+    help_pendaftaran: "Contoh: ABC 1234",
+    help_jenama: "Contoh: TOYOTA CAMRY",
+    help_tahun: "Tahun pembuatan kenderaan",
+    help_destinasi: "Alamat destinasi di Malaysia",
+    help_insuran: "Pilih tarikh luput insuran"
   },
   en: {
     section_applicant: "Applicant Information",
@@ -70,7 +80,6 @@ const translations = {
     language_prompt: "Language Choice",
     attention_note: `NOTICE\n1. This form should only be used if the VMS System is experiencing technical issues.\n2. The information provided is for internal use by the authorities only.\n3. Please ensure this form is printed and submitted together with the vehicle documents, passport, and vehicle insurance to facilitate the approval process.`,
     expiry_date: "Expired Date :",
-    // Tambahan untuk error messages
     error_required: "This field is required",
     error_email: "Please enter a valid email address",
     error_year: "Please enter a valid year",
@@ -80,7 +89,18 @@ const translations = {
     processing: "Processing...",
     success: "Form generated successfully!",
     help_confirm: "Confirmation required before submitting",
-    help_submit: "Click to generate and download PDF form"
+    help_submit: "Click to generate and download PDF form",
+    help_nama: "Enter full name",
+    help_jantina: "Select the appropriate gender",
+    help_pasport: "Example: A12345678",
+    help_pr: "Required for Malaysian citizens",
+    help_pr_expiry: "Select PR expiry date",
+    help_email: "Example: name@email.com",
+    help_pendaftaran: "Example: ABC 1234",
+    help_jenama: "Example: TOYOTA CAMRY",
+    help_tahun: "Year of vehicle manufacture",
+    help_destinasi: "Destination address in Malaysia",
+    help_insuran: "Select insurance expiry date"
   }
 };
 
@@ -94,9 +114,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const langToggle = document.getElementById('language-select');
 
   let currentLang = 'ms';
-  let isSubmitting = false; // ✅ Prevent double submission
+  let isSubmitting = false;
 
-  // ✅ Input sanitization function
   function sanitizeInput(input) {
     if (typeof input !== 'string') return input;
     return input.replace(/[<>\"'&]/g, function(match) {
@@ -105,7 +124,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // ✅ Improved toast notification instead of alert
   function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
@@ -124,7 +142,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 3000);
   }
 
-  // ✅ Improved loading state
   function setLoadingState(loading) {
     if (loading) {
       submitBtn.innerHTML = '⏳ ' + translations[currentLang].processing;
@@ -142,7 +159,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const key = el.getAttribute('data-key');
       const translation = translations[lang]?.[key];
       if (!translation) return;
+      
       if (el.tagName === 'SELECT' || el.tagName === 'OPTION') return;
+      
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
         el.placeholder = translation;
       } else {
@@ -222,22 +241,18 @@ document.addEventListener('DOMContentLoaded', function () {
     malaysianFields.style.display = 'none';
     otherNationalityField.style.display = 'none';
     
-    // ✅ Reset required attributes
     document.getElementById('no_pr').required = false;
     document.getElementById('tarikh_mansuh_pr').required = false;
     document.getElementById('other_nationality_input').required = false;
   }
 
-  // ✅ Improved form validation
   async function validateForm(e) {
     e.preventDefault();
     
-    // ✅ Prevent double submission
     if (isSubmitting) return;
 
     const t = translations[currentLang];
 
-    // Auto-uppercase certain fields
     ['nama_penuh', 'no_pasport', 'destinasi'].forEach(id => {
       const field = document.getElementById(id);
       if (field && field.value) {
@@ -245,14 +260,12 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    // Check confirmation
     if (!confirmCheckbox.checked) {
       showToast(t.error_confirm, 'error');
       confirmCheckbox.focus();
       return;
     }
 
-    // Validate required fields
     const requiredFields = form.querySelectorAll('[required]');
     for (const field of requiredFields) {
       if (field.closest('.hidden-fields')?.style.display === 'none') continue;
@@ -264,7 +277,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // Email validation
     const emailInput = document.getElementById('email');
     if (emailInput && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value)) {
       showToast(t.error_email, 'error');
@@ -272,7 +284,6 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    // Year validation
     const tahunInput = document.getElementById('tahun_dibentuk');
     const tahunValue = parseInt(tahunInput?.value || '', 10);
     const currentYear = new Date().getFullYear();
@@ -282,13 +293,11 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    // ✅ Set loading state
     setLoadingState(true);
 
     try {
       await generatePDF();
       showToast(t.success, 'success');
-      // ✅ Don't reset form immediately - let user see success first
       setTimeout(() => {
         form.reset();
         confirmCheckbox.checked = false;
@@ -302,7 +311,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Event Listeners
   langToggle.addEventListener('change', function () {
     currentLang = this.value;
     applyTranslation(currentLang);
@@ -315,16 +323,13 @@ document.addEventListener('DOMContentLoaded', function () {
     
     if (this.value === 'MALAYSIA') {
       malaysianFields.style.display = 'block';
-      // ✅ Set sebagai required apabila Malaysia dipilih
       noPrField.required = true;
       tarikhMansuhPrField.required = true;
     } else if (this.value === 'OTHER') {
       otherNationalityField.style.display = 'block';
-      // ✅ Buang required apabila bukan Malaysia
       noPrField.required = false;
       tarikhMansuhPrField.required = false;
     } else {
-      // ✅ Buang required untuk negara lain
       noPrField.required = false;
       tarikhMansuhPrField.required = false;
     }
@@ -336,7 +341,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // ✅ Use single event listener instead of onsubmit attribute
   form.addEventListener('submit', validateForm);
 
   function initializePage() {
@@ -351,7 +355,6 @@ document.addEventListener('DOMContentLoaded', function () {
   initializePage();
 });
 
-// ✅ Rest of the PDF generation code remains the same but with error handling
 function cropQRCodeCanvas(qrCanvas) {
   try {
     const ctx = qrCanvas.getContext('2d');
@@ -391,11 +394,10 @@ function cropQRCodeCanvas(qrCanvas) {
     return croppedCanvas;
   } catch (error) {
     console.error('QR Code cropping error:', error);
-    return qrCanvas; // Return original if cropping fails
+    return qrCanvas;
   }
 }
 
-// ✅ Improved PDF generation with better error handling
 async function generatePDF() {
   try {
     const { jsPDF } = window.jspdf;
@@ -417,7 +419,6 @@ async function generatePDF() {
       return `${day}/${month}/${year}`;
     };
 
-    // Collect form data
     const formData = {
       NamaPenuh: getValue("nama_penuh").toUpperCase(),
       Jantina: getValue("jantina"),
@@ -438,7 +439,6 @@ async function generatePDF() {
       TarikhTiba: getFormattedDate("tarikh_tiba")
     };
 
-    // Calculate expiry date
     let tarikhTamat = "-";
     if (formData.TarikhTiba !== "-") {
       const [day, month, year] = formData.TarikhTiba.split("/");
@@ -467,7 +467,6 @@ async function generatePDF() {
       tarikhTamat = `${dd}/${mm}/${yyyy}`;
     }
 
-    // Generate unique ID
     const now = new Date();
     const bulan = String(now.getMonth() + 1).padStart(2, '0');
     const tahun = String(now.getFullYear()).slice(-2);
@@ -475,7 +474,6 @@ async function generatePDF() {
     const noPendaftaranClean = formData.NoPendaftaran.replace(/\s+/g, '').toUpperCase();
     const uniqueID = `JKDM/${bulan}/${randomID}${noPendaftaranClean}/${tahun}`;
 
-    // Generate QR Code
     const qrDataOrdered = {
       NoBorang: uniqueID,
       TamatTempoh: tarikhTamat,
@@ -492,8 +490,7 @@ async function generatePDF() {
     new QRious({ element: qrCanvasRaw, value: qrText, size: 120 });
     const qrCanvas = cropQRCodeCanvas(qrCanvasRaw);
 
-    // Header with fallback
-    let yStart = 25; // Default if no header image
+    let yStart = 25;
     
     try {
       const headerImg = new Image();
@@ -509,14 +506,12 @@ async function generatePDF() {
         };
         headerImg.onerror = () => {
           console.warn('Header image not found, continuing without it');
-          // Add text header as fallback
           doc.setFont("Helvetica", "bold");
           doc.setFontSize(16);
           doc.text("BORANG PENDAFTARAN KENDERAAN", pageWidth/2, 20, { align: "center" });
           yStart = 30;
           resolve();
         };
-        // Timeout after 5 seconds
         setTimeout(() => {
           console.warn('Header image load timeout');
           doc.setFont("Helvetica", "bold");
@@ -530,7 +525,6 @@ async function generatePDF() {
       console.warn('Error loading header:', error);
     }
 
-    // Helper functions
     function sectionTitle(title, x, y) {
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(12);
@@ -549,7 +543,6 @@ async function generatePDF() {
       return y + lineHeight - 1;
     }
 
-    // Applicant Information (left side)
     let yLeft = sectionTitle(t.section_applicant, marginLeft, yStart);
     yLeft = row(t.full_name, formData.NamaPenuh, marginLeft, yLeft);
     yLeft = row(t.gender, formData.Jantina, marginLeft, yLeft);
@@ -559,7 +552,6 @@ async function generatePDF() {
     yLeft = row(t.pr_expiry, formData.TarikhMansuhPR, marginLeft, yLeft);
     yLeft = row(t.email, formData.Email, marginLeft, yLeft);
 
-    // QR Code + Form Number + Expiry Date
     const qrSize = 50;
     const qrX = pageWidth - marginLeft - qrSize - 18;
     const qrY = yStart + (yLeft - yStart) / 2 - qrSize / 2 - 5;
@@ -582,7 +574,6 @@ async function generatePDF() {
 
     doc.addImage(qrCanvas.toDataURL("image/png"), 'PNG', qrX, qrY, qrSize, qrSize);
 
-    // Vehicle Information (left) + Travel Information (right)
     let yLeft2 = sectionTitle(t.vehicle_info, marginLeft, yLeft + 20);
     yLeft2 = row(t.registration_number, formData.NoPendaftaran, marginLeft, yLeft2);
     yLeft2 = row(t.brand_model, formData.JenamaModel, marginLeft, yLeft2);
@@ -597,7 +588,6 @@ async function generatePDF() {
     yRight2 = row(t.destination || "Destinasi", formData.AlamatMalaysia, pageWidth / 2 + 10, yRight2);
     yRight2 = row(t.arrival_date, formData.TarikhTiba, pageWidth / 2 + 10, yRight2);
 
-    // Footer content
     const finalY = Math.max(yLeft2, yRight2) + 10;
     doc.setFont("Helvetica", "bold");
     doc.text(t.declaration, marginLeft, finalY, { maxWidth: pageWidth - marginLeft * 2 });
@@ -606,18 +596,15 @@ async function generatePDF() {
     doc.setFontSize(10);
     doc.text(t.disclaimer, marginLeft, finalY + 12, { maxWidth: pageWidth - marginLeft * 2 });
 
-    // Attention notice
     doc.setFont("Helvetica", "bold");
     doc.setTextColor(200, 0, 0);
     doc.text(t.attention_note, marginLeft, finalY + 35, { maxWidth: pageWidth - marginLeft * 2 });
 
-    // Print date at footer
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
     doc.text(`Tarikh Cetakan: ${new Date().toLocaleDateString("ms-MY")}`, pageWidth - marginLeft, 287, { align: "right" });
 
-    // Save PDF
     const nama = formData.NamaPenuh.replace(/\s+/g, "_") || "borang";
     doc.save(`Borang_${nama}.pdf`);
     
